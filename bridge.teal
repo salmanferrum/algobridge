@@ -1,0 +1,162 @@
+#pragma version 5
+txn ApplicationID
+int 0
+==
+bnz main_l12
+txn OnCompletion
+int NoOp
+==
+bnz main_l7
+txn OnCompletion
+int UpdateApplication
+==
+bnz main_l6
+txn OnCompletion
+int DeleteApplication
+==
+bnz main_l5
+err
+main_l5:
+int 0
+return
+main_l6:
+int 0
+return
+main_l7:
+txna ApplicationArgs 0
+byte "swap"
+==
+bnz main_l11
+txna ApplicationArgs 0
+byte "withdraw"
+==
+bnz main_l10
+err
+main_l10:
+txna ApplicationArgs 1
+btoi
+txna ApplicationArgs 2
+btoi
+txna ApplicationArgs 3
+btoi
+callsub sub3
+int 1
+return
+main_l11:
+byte "token"
+app_global_get
+int 0
+global CurrentApplicationAddress
+callsub sub0
+txna ApplicationArgs 1
+btoi
+txna ApplicationArgs 2
+btoi
+txna ApplicationArgs 4
+txna ApplicationArgs 3
+btoi
+txna ApplicationArgs 5
+callsub sub2
+int 1
+return
+main_l12:
+byte "bridge_fee"
+txna ApplicationArgs 0
+btoi
+app_global_put
+byte "token"
+txna ApplicationArgs 1
+btoi
+app_global_put
+int 1
+return
+sub0: // execute_asset_transfer
+store 2
+store 1
+store 0
+itxn_begin
+int axfer
+itxn_field TypeEnum
+load 0
+itxn_field XferAsset
+load 1
+itxn_field AssetAmount
+load 2
+itxn_field AssetReceiver
+int 0
+itxn_field Fee
+itxn_submit
+retsub
+sub1: // is_asset_transfered
+store 9
+store 8
+global GroupSize
+int 2
+==
+gtxn 0 TypeEnum
+int axfer
+==
+&&
+gtxn 0 XferAsset
+load 8
+==
+&&
+gtxn 0 Sender
+txn Sender
+==
+&&
+gtxn 0 AssetReceiver
+global CurrentApplicationAddress
+==
+&&
+gtxn 0 AssetAmount
+load 9
+==
+&&
+assert
+retsub
+sub2: // swap_token
+store 7
+store 6
+store 5
+store 4
+store 3
+load 4
+int 0
+>
+assert
+load 6
+int 0
+>
+assert
+load 3
+app_global_get
+load 4
+callsub sub1
+retsub
+sub3: // withdraw_token
+store 12
+store 11
+store 10
+load 12
+int 0
+>
+assert
+load 12
+store 14
+byte "bridge_fee"
+app_global_get
+load 12
+int 10000
+/
+*
+store 13
+load 14
+load 13
+-
+store 14
+load 10
+load 14
+load 11
+callsub sub0
+retsub
