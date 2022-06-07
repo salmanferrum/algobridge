@@ -2,7 +2,7 @@
 txn ApplicationID
 int 0
 ==
-bnz main_l12
+bnz main_l14
 txn OnCompletion
 int NoOp
 ==
@@ -24,42 +24,52 @@ int 0
 return
 main_l7:
 txna ApplicationArgs 0
+byte "setup"
+==
+bnz main_l13
+txna ApplicationArgs 0
 byte "swap"
 ==
-bnz main_l11
+bnz main_l12
 txna ApplicationArgs 0
 byte "withdraw"
 ==
-bnz main_l10
+bnz main_l11
 err
-main_l10:
+main_l11:
 txna ApplicationArgs 1
 btoi
+txn Sender
 txna ApplicationArgs 2
-btoi
-txna ApplicationArgs 3
 btoi
 callsub sub3
 int 1
 return
-main_l11:
-byte "token"
-app_global_get
-int 0
-global CurrentApplicationAddress
-callsub sub0
+main_l12:
 txna ApplicationArgs 1
 btoi
 txna ApplicationArgs 2
 btoi
-txna ApplicationArgs 4
 txna ApplicationArgs 3
+txna ApplicationArgs 4
 btoi
 txna ApplicationArgs 5
 callsub sub2
 int 1
 return
-main_l12:
+main_l13:
+byte "token"
+app_global_get
+int 0
+global CurrentApplicationAddress
+callsub sub0
+int 1
+return
+main_l14:
+global GroupSize
+int 1
+==
+assert
 byte "bridge_fee"
 txna ApplicationArgs 0
 btoi
@@ -67,6 +77,9 @@ app_global_put
 byte "token"
 txna ApplicationArgs 1
 btoi
+app_global_put
+byte "application_admin"
+txn Sender
 app_global_put
 int 1
 return
@@ -129,8 +142,19 @@ load 6
 int 0
 >
 assert
+byte "amount"
+load 4
+app_global_put
+byte "target_token"
+load 5
+app_global_put
+byte "target_network"
+load 6
+app_global_put
+byte "target_address"
+load 7
+app_global_put
 load 3
-app_global_get
 load 4
 callsub sub1
 retsub
@@ -144,13 +168,16 @@ int 0
 assert
 load 12
 store 14
+load 12
 byte "bridge_fee"
 app_global_get
-load 12
 int 10000
 /
 *
 store 13
+byte "bridge_fee"
+load 13
+app_global_put
 load 14
 load 13
 -

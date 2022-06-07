@@ -8,7 +8,7 @@ def approval_program():
     target_network = Bytes("target_network")
     target_token = Bytes("target_token")
     target_address = Bytes("target_address")
-
+    application_admin = Bytes("application_admin")
 
 # Functions
     @Subroutine(TealType.none)
@@ -40,7 +40,7 @@ def approval_program():
 
 
     @Subroutine(TealType.none)
-    def swap_token(token: TealType.uint64, _amount: TealType.uint64, _target_token: TealType.bytes, _target_network: TealType.uint64, _target_address: TealType.bytes):
+    def swap_token(_token: TealType.uint64, _amount: TealType.uint64, _target_token: TealType.bytes, _target_network: TealType.uint64, _target_address: TealType.bytes):
         return Seq([
             # Exception ("BP: bad amount")
             Assert(_amount > Int(0)),
@@ -54,7 +54,7 @@ def approval_program():
             # amount = SafeAmount.safeTransferFrom(token, from, address(this), amount);
 
             # Verify that swapper has transfered assets to the application
-            is_asset_transfered(App.globalGet(token), _amount),
+            is_asset_transfered(_token, _amount),
         ])
 
     @Subroutine(TealType.none)
@@ -66,10 +66,13 @@ def approval_program():
             # Exception ("BP: bad amount")
             Assert(amount > Int(0)),
 
+            # fee = amount * FEE / 10000;
+            # amount = amount - fee;
+
             token_amount.store(amount),
-            fee.store(App.globalGet(bridge_fee) * (amount / Int(10000))),
+            fee.store(amount * (App.globalGet(bridge_fee) / Int(10000))),
 
-
+            App.globalPut(bridge_fee, fee.load()),
             token_amount.store(token_amount.load() - fee.load()),
 
             # IERC20(token).safeTransfer(payee, amount);
@@ -77,43 +80,52 @@ def approval_program():
             execute_asset_transfer(token, token_amount.load(), receiver)
         ])
 
+    
     # CONSTRUCTOR
     _bridge_fee = Btoi(Txn.application_args[0])
     _token = Btoi(Txn.application_args[1])
 
     on_creation = Seq(
+        Assert(Global.group_size() == Int(1)),
         App.globalPut(bridge_fee, _bridge_fee),
         App.globalPut(token, _token),
+        App.globalPut(application_admin, Txn.sender()),
+        Approve(),
+    )
+    # is_application_admin = Assert(Txn.sender() == App.globalGet(application_admin))
+    on_setup = Seq(
+        # is_application_admin,
+        # OPT-IN to Token from Application. 
+        execute_asset_transfer(App.globalGet(token), Int(0), Global.current_application_address()),
         Approve(),
     )
 
     _token = Btoi(Txn.application_args[1])
     _amount = Btoi(Txn.application_args[2])
-    _target_network = Btoi(Txn.application_args[3])
-    _target_token = Txn.application_args[4]
+    _target_token = Txn.application_args[3]
+    _target_network = Btoi(Txn.application_args[4])
     _target_address = Txn.application_args[5]
 
     # Method SWAP
     on_swap = Seq([
-        # OPT-IN to Token from Application. 
-        execute_asset_transfer(App.globalGet(token), Int(0), Global.current_application_address()),
         # SWAP TOKEN
         swap_token(_token, _amount, _target_token, _target_network, _target_address),
         Approve(),
     ])
 
     _token = Btoi(Txn.application_args[1])
-    _receiver = Btoi(Txn.application_args[2])
-    _amount = Btoi(Txn.application_args[3])
+    _amount = Btoi(Txn.application_args[2])
 
     # Method WITHDRAW
     on_withdraw = Seq([
-        withdraw_token(_token, _receiver, _amount),
+        # is_application_admin,
+        withdraw_token(_token, Txn.sender(), _amount),
         Approve(),
     ])
 
     on_call_method = Txn.application_args[0]
     on_call = Cond(
+        [on_call_method == Bytes("setup"), on_setup],
         [on_call_method == Bytes("swap"), on_swap],
         [on_call_method == Bytes("withdraw"), on_withdraw]
     )

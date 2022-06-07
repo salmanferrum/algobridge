@@ -5,7 +5,7 @@ pragma solidity 0.8.2;
 contract BridgePool {
     // using SafeERC20 for IERC20;
 
-	uint256 constant FEE = 0.0025 * 10000; // 2.5%  fee
+	uint256 constant FEE = 0.00025 * 1000; // 2.5%  fee
 
     function swap(address token, uint256 amount, uint256 targetNetwork, address targetToken)
     external returns(uint256) {
